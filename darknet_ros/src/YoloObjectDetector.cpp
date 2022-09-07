@@ -139,6 +139,8 @@ void YoloObjectDetector::init() {
   nodeHandle_.param("publishers/detection_image/queue_size", detectionImageQueueSize, 1);
   nodeHandle_.param("publishers/detection_image/latch", detectionImageLatch, true);
 
+  nodeHandle_.param("sub_img_time_tolerance", sub_img_time_tolerance, 3.0);
+
   imageSubscriber_ = imageTransport_.subscribe(cameraTopicName, cameraQueueSize, &YoloObjectDetector::cameraCallback, this);
   objectPublisher_ =
       nodeHandle_.advertise<darknet_ros_msgs::ObjectCount>(objectDetectorTopicName, objectDetectorQueueSize, objectDetectorLatch);
@@ -493,27 +495,35 @@ void YoloObjectDetector::yolo() {
 
   demoTime_ = what_time_is_it_now();
 
+  ros::Rate rate(10);
   while (!demoDone_) {
-    buffIndex_ = (buffIndex_ + 1) % 3;
-    fetch_thread = std::thread(&YoloObjectDetector::fetchInThread, this);
-    detect_thread = std::thread(&YoloObjectDetector::detectInThread, this);
-    if (!demoPrefix_) {
-      fps_ = 1. / (what_time_is_it_now() - demoTime_);
-      demoTime_ = what_time_is_it_now();
-      if (viewImage_) {
-        displayInThread(0);
+    if (ros::Time::now() - imageHeader_.stamp < ros::Duration(sub_img_time_tolerance))
+    {
+      buffIndex_ = (buffIndex_ + 1) % 3;
+      fetch_thread = std::thread(&YoloObjectDetector::fetchInThread, this);
+      detect_thread = std::thread(&YoloObjectDetector::detectInThread, this);
+      if (!demoPrefix_) {
+        fps_ = 1. / (what_time_is_it_now() - demoTime_);
+        demoTime_ = what_time_is_it_now();
+        if (viewImage_) {
+          displayInThread(0);
+        } else {
+          generate_image(buff_[(buffIndex_ + 1) % 3], disp_);
+        }
+        publishInThread();
       } else {
-        generate_image(buff_[(buffIndex_ + 1) % 3], disp_);
+        char name[256];
+        sprintf(name, "%s_%08d", demoPrefix_, count);
+        save_image(buff_[(buffIndex_ + 1) % 3], name);
       }
-      publishInThread();
-    } else {
-      char name[256];
-      sprintf(name, "%s_%08d", demoPrefix_, count);
-      save_image(buff_[(buffIndex_ + 1) % 3], name);
+      fetch_thread.join();
+      detect_thread.join();
+      ++count;
     }
-    fetch_thread.join();
-    detect_thread.join();
-    ++count;
+    else
+    {
+      rate.sleep();
+    }
     if (!isNodeRunning()) {
       demoDone_ = true;
     }
