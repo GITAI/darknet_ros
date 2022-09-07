@@ -139,6 +139,8 @@ void YoloObjectDetector::init() {
   nodeHandle_.param("publishers/detection_image/queue_size", detectionImageQueueSize, 1);
   nodeHandle_.param("publishers/detection_image/latch", detectionImageLatch, true);
 
+  nodeHandle_.param("sub_img_time_tolerance", sub_img_time_tolerance, 3.0);
+
   imageSubscriber_ = imageTransport_.subscribe(cameraTopicName, cameraQueueSize, &YoloObjectDetector::cameraCallback, this);
   objectPublisher_ =
       nodeHandle_.advertise<darknet_ros_msgs::ObjectCount>(objectDetectorTopicName, objectDetectorQueueSize, objectDetectorLatch);
@@ -493,10 +495,9 @@ void YoloObjectDetector::yolo() {
 
   demoTime_ = what_time_is_it_now();
 
-  ros::Rate r(10);
+  ros::Rate rate(10);
   while (!demoDone_) {
-    ROS_INFO_STREAM("image header stamp: " << imageHeader_.stamp  << ", diff: " << ros::Time::now() - imageHeader_.stamp);
-    if (ros::Time::now() - imageHeader_.stamp < ros::Duration(3.0))
+    if (ros::Time::now() - imageHeader_.stamp < ros::Duration(sub_img_time_tolerance))
     {
       buffIndex_ = (buffIndex_ + 1) % 3;
       fetch_thread = std::thread(&YoloObjectDetector::fetchInThread, this);
@@ -518,11 +519,10 @@ void YoloObjectDetector::yolo() {
       fetch_thread.join();
       detect_thread.join();
       ++count;
-      last_sub_time = imageHeader_.stamp;
     }
     else
     {
-      r.sleep();
+      rate.sleep();
     }
     if (!isNodeRunning()) {
       demoDone_ = true;

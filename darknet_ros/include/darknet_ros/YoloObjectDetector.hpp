@@ -212,6 +212,9 @@ class YoloObjectDetector {
   int actionId_;
   boost::shared_mutex mutexActionStatus_;
 
+  // subscribe image time tolerance
+  double sub_img_time_tolerance;
+
   // double getWallTime();
 
   int sizeNetwork(network* net);
