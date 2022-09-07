@@ -493,27 +493,37 @@ void YoloObjectDetector::yolo() {
 
   demoTime_ = what_time_is_it_now();
 
+  ros::Rate r(10);
   while (!demoDone_) {
-    buffIndex_ = (buffIndex_ + 1) % 3;
-    fetch_thread = std::thread(&YoloObjectDetector::fetchInThread, this);
-    detect_thread = std::thread(&YoloObjectDetector::detectInThread, this);
-    if (!demoPrefix_) {
-      fps_ = 1. / (what_time_is_it_now() - demoTime_);
-      demoTime_ = what_time_is_it_now();
-      if (viewImage_) {
-        displayInThread(0);
+    ROS_INFO_STREAM("image header stamp: " << imageHeader_.stamp  << ", diff: " << ros::Time::now() - imageHeader_.stamp);
+    if (ros::Time::now() - imageHeader_.stamp < ros::Duration(3.0))
+    {
+      buffIndex_ = (buffIndex_ + 1) % 3;
+      fetch_thread = std::thread(&YoloObjectDetector::fetchInThread, this);
+      detect_thread = std::thread(&YoloObjectDetector::detectInThread, this);
+      if (!demoPrefix_) {
+        fps_ = 1. / (what_time_is_it_now() - demoTime_);
+        demoTime_ = what_time_is_it_now();
+        if (viewImage_) {
+          displayInThread(0);
+        } else {
+          generate_image(buff_[(buffIndex_ + 1) % 3], disp_);
+        }
+        publishInThread();
       } else {
-        generate_image(buff_[(buffIndex_ + 1) % 3], disp_);
+        char name[256];
+        sprintf(name, "%s_%08d", demoPrefix_, count);
+        save_image(buff_[(buffIndex_ + 1) % 3], name);
       }
-      publishInThread();
-    } else {
-      char name[256];
-      sprintf(name, "%s_%08d", demoPrefix_, count);
-      save_image(buff_[(buffIndex_ + 1) % 3], name);
+      fetch_thread.join();
+      detect_thread.join();
+      ++count;
+      last_sub_time = imageHeader_.stamp;
     }
-    fetch_thread.join();
-    detect_thread.join();
-    ++count;
+    else
+    {
+      r.sleep();
+    }
     if (!isNodeRunning()) {
       demoDone_ = true;
     }
