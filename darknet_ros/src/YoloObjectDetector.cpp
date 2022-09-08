@@ -450,6 +450,7 @@ void YoloObjectDetector::yolo() {
     }
     std::this_thread::sleep_for(wait_duration);
   }
+  ROS_INFO("Image found. Yolo detection starts.");
 
   std::thread detect_thread;
   std::thread fetch_thread;
