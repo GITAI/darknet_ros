@@ -1,3 +1,4 @@
-[submodule "darknet"]
-        path = darknet
-        url = https://github.com/AkiraShibata18/darknet.git
+[submodule "darknet_ros/darknet"]
+	path = darknet_ros/darknet
+	url = git@github.com:AkiraShibata18/darknet.git
+	branch = master
